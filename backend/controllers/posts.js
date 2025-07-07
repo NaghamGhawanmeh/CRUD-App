@@ -1,11 +1,10 @@
 const postModel = require("../models/posts");
 const postsModel = require("../models/posts");
-const commentsModel = require("../models/posts");
 
 const createPost = (req, res) => {
   const { title, description, media } = req.body;
-
-  const newPost = new postsModel({ title, description, media });
+  const author = req.token.userId;
+  const newPost = new postsModel({ title, description, media, author });
 
   newPost
     .save()
@@ -27,6 +26,8 @@ const createPost = (req, res) => {
 const getAllPosts = (req, res) => {
   postsModel
     .find({})
+    .populate("comments")
+    .populate("author")
     .then((result) => {
       res.status(200).json({
         success: true,
