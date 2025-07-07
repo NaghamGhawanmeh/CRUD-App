@@ -74,6 +74,7 @@ const login = (req, res) => {
           token: token,
           userId: result._id,
           roleId: result.role,
+          userName: result.userName,
         });
       } catch (error) {
         throw new Error(error.message);

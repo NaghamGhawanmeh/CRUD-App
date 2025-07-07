@@ -5,6 +5,7 @@ import { CssBaseline, GlobalStyles, ThemeProvider } from "@mui/material";
 
 import Auth from "./components/Auth";
 import Posts from "./components/Posts";
+import Users from "./components/Users";
 import Topbar from "./scenes/global/Topbar";
 import Dashboard from "./components/Dashboard";
 import { useSelector } from "react-redux";
@@ -39,6 +40,7 @@ function App() {
               <Route path="/" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/posts" element={<Posts />} />
+              <Route path="/users" element={<Users />} />
             </Routes>
           </main>
         </div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,28 +11,45 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   TextField,
+  FormControl,
+  FormLabel,
+  IconButton,
 } from "@mui/material";
 import axios from "axios";
 import { tokens } from "../theme";
-import { useFormik } from "formik";
+import { Formik, Form } from "formik";
 import * as Yup from "yup";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  setPosts,
+  addPost,
+  updatePostById,
+  deletePostById,
+} from "../redux/reducers/posts";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const PostsList = () => {
-  const [posts, setPosts] = useState([]);
   const [open, setOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [status, setStatus] = useState();
+  const [message, setMessage] = useState();
 
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+
+  const dispatch = useDispatch();
+  const posts = useSelector((reducers) => reducers.postsReducer.posts);
+  const authToken = useSelector((reducers) => reducers.authReducer.token);
 
   const getAllPosts = async () => {
     try {
       const response = await axios.get(
         "http://localhost:5000/posts/getAllPosts"
       );
-      setPosts(response.data.posts);
+      dispatch(setPosts(response.data.posts));
     } catch (err) {
       console.error("Error fetching posts:", err);
     }
@@ -40,25 +57,85 @@ const PostsList = () => {
 
   useEffect(() => {
     getAllPosts();
-  }, []);
-
-  // Formik config
-  const formik = useFormik({
-    initialValues: {
-      title: "",
-      description: "",
-      media: "",
-    },
-    validationSchema: Yup.object({
-      title: Yup.string().required("Title is required"),
-      description: Yup.string().required("Description is required"),
-      media: Yup.string().url("Must be a valid URL").nullable(),
-    }),
-    onSubmit: (values) => {
-      console.log("Form Values:", values);
-      setOpen(false);
-    },
   });
+
+  // create or update handler
+  const handleSubmit = async (values) => {
+    try {
+      if (selectedPost) {
+        // Update
+
+        const response = await axios.put(
+          `http://localhost:5000/posts/updatePostById/${selectedPost._id}`,
+          {
+            title: values.title,
+            description: values.description,
+            media: values.media,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
+        );
+        dispatch(updatePostById(response.data.updatedPost));
+        console.log(response);
+
+        setMessage(response.data.message);
+        setStatus(true);
+      } else {
+        // Create
+        try {
+          const response = await axios.post(
+            "http://localhost:5000/posts/createPost",
+            {
+              title: values.title,
+              description: values.description,
+              media: values.media,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${authToken}`,
+              },
+            }
+          );
+          dispatch(addPost(response.data.post));
+          setMessage(response.data.message);
+          setStatus(true);
+          console.log(response);
+        } catch (err) {
+          console.log(err);
+          setStatus(false);
+          setMessage(err.response?.data?.message);
+        }
+      }
+
+      setOpen(false);
+      setSelectedPost(null);
+    } catch (err) {
+      console.log(err);
+      setStatus(false);
+      setMessage(err.response?.data?.message);
+    }
+  };
+  const handleDelete = async (postId) => {
+    try {
+      await axios.delete(
+        `http://localhost:5000/posts/deletePostById/${postId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        }
+      );
+      dispatch(deletePostById(postId));
+      console.log("Post deleted");
+    } catch (err) {
+      console.log(err);
+      setStatus(false);
+      setMessage(err.response?.data?.message);
+    }
+  };
 
   return (
     <>
@@ -66,7 +143,10 @@ const PostsList = () => {
         <Button
           variant="contained"
           style={{ backgroundColor: colors.greenAccent[500] }}
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setSelectedPost(null);
+            setOpen(true);
+          }}
         >
           Create Post
         </Button>
@@ -75,7 +155,34 @@ const PostsList = () => {
       {/* Posts List */}
       <Box display="flex" flexWrap="wrap" justifyContent="center">
         {posts.map((post) => (
-          <Card key={post._id} sx={{ width: 350, m: 2 }}>
+          <Card key={post._id} sx={{ width: 350, m: 2, position: "relative" }}>
+            <IconButton
+              sx={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.9)" },
+              }}
+              onClick={() => {
+                setSelectedPost(post);
+                setOpen(true);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+            <IconButton
+              sx={{
+                position: "absolute",
+                top: 8,
+                right: 48,
+                backgroundColor: "rgba(255, 255, 255, 0.7)",
+                "&:hover": { backgroundColor: "rgba(255, 255, 255, 0.9)" },
+              }}
+              onClick={() => handleDelete(post._id)}
+            >
+              <DeleteIcon />
+            </IconButton>
             {post.media && post.media.length > 0 && (
               <CardMedia
                 component="img"
@@ -114,63 +221,93 @@ const PostsList = () => {
 
       {/* Dialog with Formik */}
       <Dialog open={open} onClose={() => setOpen(false)}>
-        <DialogTitle>Create New Post</DialogTitle>
+        <DialogTitle>
+          {selectedPost ? "Update Post" : "Create New Post"}
+        </DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Fill in the details below to create a new post.
-          </DialogContentText>
-          <form onSubmit={formik.handleSubmit}>
-            <TextField
-              autoFocus
-              margin="dense"
-              name="title"
-              label="Title"
-              type="text"
-              fullWidth
-              variant="standard"
-              value={formik.values.title}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.touched.title && Boolean(formik.errors.title)}
-              helperText={formik.touched.title && formik.errors.title}
-            />
-            <TextField
-              margin="dense"
-              name="description"
-              label="Description"
-              type="text"
-              fullWidth
-              variant="standard"
-              value={formik.values.description}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={
-                formik.touched.description && Boolean(formik.errors.description)
-              }
-              helperText={
-                formik.touched.description && formik.errors.description
-              }
-            />
-            <TextField
-              margin="dense"
-              name="media"
-              label="Media URL (optional)"
-              type="text"
-              fullWidth
-              variant="standard"
-              value={formik.values.media}
-              onChange={formik.handleChange}
-              onBlur={formik.handleBlur}
-              error={formik.touched.media && Boolean(formik.errors.media)}
-              helperText={formik.touched.media && formik.errors.media}
-            />
-            <DialogActions>
-              <Button onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" variant="contained">
-                Create
-              </Button>
-            </DialogActions>
-          </form>
+          <Formik
+            initialValues={{
+              title: selectedPost?.title || "",
+              description: selectedPost?.description || "",
+              media: selectedPost?.media ? selectedPost.media[0] : "",
+            }}
+            enableReinitialize
+            validationSchema={Yup.object({
+              title: Yup.string().required("Title is required"),
+              description: Yup.string().required("Description is required"),
+              media: Yup.string().url("Must be a valid URL").nullable(),
+            })}
+            onSubmit={handleSubmit}
+          >
+            {({ handleChange, handleBlur, values, touched, errors }) => (
+              <Form>
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <FormLabel htmlFor="title">Title</FormLabel>
+                  <TextField
+                    id="title"
+                    name="title"
+                    type="text"
+                    placeholder="Post title"
+                    fullWidth
+                    variant="standard"
+                    value={values.title}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.title && Boolean(errors.title)}
+                    helperText={touched.title && errors.title}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <FormLabel htmlFor="description">Description</FormLabel>
+                  <TextField
+                    id="description"
+                    name="description"
+                    type="text"
+                    placeholder="Post description"
+                    fullWidth
+                    variant="standard"
+                    value={values.description}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.description && Boolean(errors.description)}
+                    helperText={touched.description && errors.description}
+                  />
+                </FormControl>
+
+                <FormControl fullWidth sx={{ mt: 2 }}>
+                  <FormLabel htmlFor="media">Media URL</FormLabel>
+                  <TextField
+                    id="media"
+                    name="media"
+                    type="text"
+                    placeholder="https://example.com/image.jpg"
+                    fullWidth
+                    variant="standard"
+                    value={values.media}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    error={touched.media && Boolean(errors.media)}
+                    helperText={touched.media && errors.media}
+                  />
+                </FormControl>
+
+                <DialogActions sx={{ mt: 2 }}>
+                  <Button
+                    onClick={() => {
+                      setOpen(false);
+                      setSelectedPost(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" variant="contained">
+                    {selectedPost ? "Update" : "Create"}
+                  </Button>
+                </DialogActions>
+              </Form>
+            )}
+          </Formik>
         </DialogContent>
       </Dialog>
     </>
