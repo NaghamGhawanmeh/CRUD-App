@@ -1,27 +1,30 @@
-import { Box, Typography } from "@mui/material";
+import { Box, IconButton, Typography } from "@mui/material";
 import { DataGrid } from "@mui/x-data-grid";
 import { tokens } from "../theme";
 import { useTheme } from "@mui/material";
 import AdminPanelSettingsOutlinedIcon from "@mui/icons-material/AdminPanelSettingsOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
 import SecurityOutlinedIcon from "@mui/icons-material/SecurityOutlined";
+import { useEffect } from "react";
+import axios from "axios";
+import { setUsers } from "../redux/reducers/users";
+import { useDispatch, useSelector } from "react-redux";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 const Contacts = () => {
   const theme = useTheme();
   const colors = tokens(theme.palette.mode);
+  const dispatch = useDispatch();
+  const users = useSelector((reducers) => reducers.usersReducer.users);
+  console.log("users:", users);
 
   const columns = [
-    { field: "id", headerName: "ID" },
+    // { field: "id", headerName: "ID" },
     {
       field: "name",
       headerName: "Name",
       flex: 1,
       cellClassName: "name-column--cell",
-    },
-
-    {
-      field: "phone",
-      headerName: "Phone Number",
-      flex: 1,
     },
     {
       field: "email",
@@ -58,30 +61,49 @@ const Contacts = () => {
         );
       },
     },
+    {
+      field: "actions",
+      headerName: "Actions",
+      flex: 1,
+      headerAlign: "center",
+      renderCell: ({ row: { actions } }) => {
+        return (
+          <Box
+            width="60%"
+            m="10px auto"
+            p="5px"
+            display="flex"
+            justifyContent="center"
+            borderRadius="15px"
+          >
+            <IconButton>
+              <DeleteIcon />
+            </IconButton>
+            <IconButton>
+              <EditIcon />
+            </IconButton>
+          </Box>
+        );
+      },
+    },
   ];
-  const mockDataTeam = [
-    {
-      id: 1,
-      name: "Jon Snow",
-      email: "jonsnow@gmail.com",
-      phone: "(665)121-5454",
-      access: "admin",
-    },
-    {
-      id: 2,
-      name: "Cersei Lannister",
-      email: "cerseilannister@gmail.com",
-      phone: "(421)314-2288",
-      access: "manager",
-    },
-    {
-      id: 3,
-      name: "Jaime Lannister",
-      email: "jaimelannister@gmail.com",
-      phone: "(422)982-6739",
-      access: "user",
-    },
-  ];
+
+  const getAllUsers = async () => {
+    try {
+      const response = await axios.get(
+        "http://localhost:5000/users/getAllUsers"
+      );
+      console.log(response);
+
+      dispatch(setUsers(response.data.users));
+    } catch (err) {
+      console.error("Error fetching posts:", err);
+    }
+  };
+  useEffect(() => {
+    getAllUsers();
+  }, []);
+
   return (
     <Box m="20px">
       USERS
@@ -121,9 +143,13 @@ const Contacts = () => {
       >
         <DataGrid
           checkboxSelection
-          rows={mockDataTeam}
+          rows={users.map((user) => ({
+            id: user._id,
+            name: user.userName,
+            email: user.email,
+            access: user.role?.role || "user",
+          }))}
           columns={columns}
-          showToolbar
         />
       </Box>
     </Box>

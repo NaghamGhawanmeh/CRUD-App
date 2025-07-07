@@ -57,7 +57,7 @@ const PostsList = () => {
 
   useEffect(() => {
     getAllPosts();
-  });
+  }, []);
 
   // create or update handler
   const handleSubmit = async (values) => {

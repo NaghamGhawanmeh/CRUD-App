@@ -88,8 +88,27 @@ const login = (req, res) => {
       });
     });
 };
-
+const getAllUsers = (req, res) => {
+  userModel
+    .find({})
+    .populate("role")
+    .then((result) => {
+      res.status(201).json({
+        success: true,
+        message: "All the Users",
+        users: result,
+      });
+    })
+    .catch((error) => {
+      res.status(500).json({
+        success: false,
+        message: "Server Error",
+        err: err.message,
+      });
+    });
+};
 module.exports = {
   register,
   login,
+  getAllUsers,
 };
